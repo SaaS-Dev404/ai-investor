@@ -84,7 +84,7 @@ def execute_buy():
         analyzer.fetch_data()
         price = analyzer.data.iloc[-1]['Close']
         
-        result = portfolio.buy(ticker, price, portfolio.cash + 10000)  # Assume user has cash
+        result = portfolio.buy(ticker, price, portfolio.cash)  # Use actual cash balance
         
         return jsonify(result)
     except Exception as e:
