@@ -36,7 +36,7 @@ def check_auth(username, password):
             hmac.compare_digest(password, config.AUTH_PASSWORD))
 
 # Initialize portfolio manager
-portfolio = PortfolioManager(initial_capital=0)
+portfolio = PortfolioManager(initial_capital=10000)  # Paper trading starts with $10k
 
 
 @app.route('/')
