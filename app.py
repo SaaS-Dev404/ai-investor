@@ -84,6 +84,13 @@ def execute_buy():
         analyzer.fetch_data()
         price = analyzer.data.iloc[-1]['Close']
         
+        # Validate price before buying
+        if not price or price <= 0:
+            return jsonify({'success': False, 'error': 'Could not fetch price data'})
+        
+        if portfolio.cash < price:
+            return jsonify({'success': False, 'error': f'Insufficient funds. Need ${price:.2f}, have ${portfolio.cash:.2f}'})
+        
         result = portfolio.buy(ticker, price, portfolio.cash)  # Use actual cash balance
         
         return jsonify(result)
