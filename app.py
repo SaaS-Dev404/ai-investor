@@ -119,6 +119,46 @@ def get_config():
     })
 
 
+@app.route('/api/funds', methods=['POST'])
+@require_auth
+def add_funds():
+    """Add funds to portfolio"""
+    data = request.json
+    amount = data.get('amount', 0)
+    
+    if amount <= 0:
+        return jsonify({'success': False, 'error': 'Amount must be positive'})
+    
+    portfolio.cash += amount
+    return jsonify({
+        'success': True,
+        'new_balance': portfolio.cash,
+        'amount_added': amount
+    })
+
+
+@app.route('/api/reset', methods=['POST'])
+@require_auth
+def reset_portfolio():
+    """Reset portfolio (for testing)"""
+    data = request.json
+    initial_cash = data.get('initial_cash', 10000)
+    
+    portfolio.cash = initial_cash
+    portfolio.position_ticker = None
+    portfolio.position_units = 0
+    portfolio.position_avg_price = 0
+    portfolio.peak_value = initial_cash
+    portfolio.total_invested = 0
+    
+    return jsonify({
+        'success': True,
+        'cash': portfolio.cash,
+        'position_ticker': None,
+        'position_units': 0
+    })
+
+
 if __name__ == '__main__':
     print(f"\n🚀 Starting {config.PLATFORM_NAME}")
     print(f"   Primary: {config.PRIMARY_STOCK}")

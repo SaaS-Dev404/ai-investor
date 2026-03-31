@@ -131,19 +131,77 @@
             border-radius: 3px;
         }
         
-        .config-info {
+        .config-info, .actions-panel {
             background: rgba(255,255,255,0.05);
             padding: 20px;
             border-radius: 12px;
             margin-top: 30px;
         }
         
-        .config-info h3 { margin-bottom: 15px; color: #64ffda; }
+        .config-info h3, .actions-panel h3 { margin-bottom: 15px; color: #64ffda; }
         
         .config-info p {
             color: #8892b0;
             margin: 8px 0;
         }
+        
+        .btn {
+            background: #64ffda;
+            color: #1a1a2e;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn:hover { transform: translateY(-2px); }
+        
+        .btn-sell { background: #ff4757; color: #fff; }
+        .btn-buy { background: #00ff88; color: #1a1a2e; }
+        
+        .input-group {
+            margin: 15px 0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .input-group input {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+            width: 200px;
+        }
+        
+        .input-group select {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        
+        .input-group label {
+            color: #8892b0;
+        }
+        
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .message.success { background: rgba(0,255,136,0.2); color: #00ff88; }
+        .message.error { background: rgba(255,71,87,0.2); color: #ff4757; }
         
         .refresh-btn {
             position: fixed;
@@ -167,9 +225,56 @@
             padding: 50px;
             color: #8892b0;
         }
+        
+        .auth-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .auth-box {
+            background: #1a1a2e;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 400px;
+        }
+        
+        .auth-box h2 { margin-bottom: 20px; }
+        
+        .auth-box input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background: #0d0d1a;
+            color: #fff;
+        }
+        
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
+    <!-- Auth Modal -->
+    <div class="auth-modal" id="authModal">
+        <div class="auth-box">
+            <h2>🔐 AI Investor</h2>
+            <p style="color: #8892b0; margin-bottom: 20px;">Enter your credentials</p>
+            <input type="text" id="authUser" placeholder="Username">
+            <input type="password" id="authPass" placeholder="Password">
+            <button class="btn" onclick="saveAuth()">Login</button>
+            <p id="authError" style="color: #ff4757; margin-top: 10px;"></p>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <h1>🤖 AI Investor</h1>
@@ -188,15 +293,41 @@
                 <div class="sub" id="position-value">Value: $0.00</div>
             </div>
             <div class="stat-card">
-                <h3>Weekly Contribution</h3>
-                <div class="value" id="weekly-contrib">$50</div>
-                <div class="sub">Recommended</div>
+                <h3>Total Invested</h3>
+                <div class="value" id="total-invested">$0.00</div>
+                <div class="sub" id="pnl">P&L: $0.00</div>
             </div>
             <div class="stat-card">
                 <h3>Active Stocks</h3>
                 <div class="value" id="active-stocks">4</div>
                 <div class="sub">Monitoring</div>
             </div>
+        </div>
+        
+        <!-- Actions Panel -->
+        <div class="actions-panel">
+            <h3>💰 Account Actions</h3>
+            
+            <div class="input-group">
+                <label>Add Funds:</label>
+                <input type="number" id="fundAmount" placeholder="Amount ($)" min="1">
+                <button class="btn" onclick="addFunds()">Add Funds</button>
+            </div>
+            
+            <div class="input-group">
+                <label>Trade:</label>
+                <select id="tradeTicker">
+                    <option value="">Select Stock</option>
+                    <option value="VAS.AX">VAS.AX</option>
+                    <option value="BHP.AX">BHP.AX</option>
+                    <option value="TLS.AX">TLS.AX</option>
+                    <option value="WBC.AX">WBC.AX</option>
+                </select>
+                <button class="btn btn-buy" onclick="buyStock()">Buy</button>
+                <button class="btn btn-sell" onclick="sellStock()">Sell</button>
+            </div>
+            
+            <div id="actionMessage"></div>
         </div>
         
         <div class="section">
@@ -218,9 +349,40 @@
     <button class="refresh-btn" onclick="refreshAll()">🔄 Refresh</button>
     
     <script>
+        let authHeader = '';
+        
+        function getAuthHeader() {
+            return authHeader;
+        }
+        
+        async function apiCall(url, options = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(authHeader ? { 'Authorization': authHeader } : {})
+            };
+            const resp = await fetch(url, { ...options, headers });
+            
+            if (resp.status === 401) {
+                document.getElementById('authModal').classList.remove('hidden');
+                document.getElementById('authError').textContent = 'Invalid credentials';
+                throw new Error('Auth required');
+            }
+            return resp.json();
+        }
+        
+        function saveAuth() {
+            const user = document.getElementById('authUser').value;
+            const pass = document.getElementById('authPass').value;
+            
+            if (user && pass) {
+                authHeader = 'Basic ' + btoa(user + ':' + pass);
+                document.getElementById('authModal').classList.add('hidden');
+                refreshAll();
+            }
+        }
+        
         async function loadConfig() {
-            const resp = await fetch('/api/config');
-            const config = await resp.json();
+            const config = await apiCall('/api/config');
             
             document.getElementById('config-primary').textContent = config.primary_stock;
             document.getElementById('config-backups').textContent = config.backup_stocks.join(', ');
@@ -229,8 +391,7 @@
         }
         
         async function loadSignals() {
-            const resp = await fetch('/api/signals');
-            const signals = await resp.json();
+            const signals = await apiCall('/api/signals');
             
             const grid = document.getElementById('signals-grid');
             grid.innerHTML = '';
@@ -262,24 +423,94 @@
         }
         
         async function loadPortfolio() {
-            const resp = await fetch('/api/portfolio');
-            const portfolio = await resp.json();
+            const portfolio = await apiCall('/api/portfolio');
             
             document.getElementById('total-value').textContent = '$' + portfolio.total_value.toFixed(2);
             document.getElementById('cash-balance').textContent = 'Cash: $' + portfolio.cash.toFixed(2);
             document.getElementById('position-ticker').textContent = portfolio.current_ticker || '--';
             document.getElementById('position-value').textContent = 'Value: $' + portfolio.position_value.toFixed(2);
+            document.getElementById('total-invested').textContent = '$' + (portfolio.total_invested || 0).toFixed(2);
+            
+            const pnl = portfolio.position_value - (portfolio.total_invested || 0);
+            const pnlEl = document.getElementById('pnl');
+            pnlEl.textContent = 'P&L: ' + (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+            pnlEl.style.color = pnl >= 0 ? '#00ff88' : '#ff4757';
+        }
+        
+        async function addFunds() {
+            const amount = parseFloat(document.getElementById('fundAmount').value);
+            const msg = document.getElementById('actionMessage');
+            
+            if (!amount || amount <= 0) {
+                msg.innerHTML = '<div class="message error">Please enter a valid amount</div>';
+                return;
+            }
+            
+            try {
+                const result = await apiCall('/api/funds', {
+                    method: 'POST',
+                    body: JSON.stringify({ amount })
+                });
+                
+                msg.innerHTML = '<div class="message success">Added $' + amount + ' to account!</div>';
+                document.getElementById('fundAmount').value = '';
+                refreshAll();
+            } catch (e) {
+                msg.innerHTML = '<div class="message error">Failed to add funds</div>';
+            }
+        }
+        
+        async function buyStock() {
+            const ticker = document.getElementById('tradeTicker').value;
+            const msg = document.getElementById('actionMessage');
+            
+            if (!ticker) {
+                msg.innerHTML = '<div class="message error">Please select a stock</div>';
+                return;
+            }
+            
+            try {
+                const result = await apiCall('/api/buy', {
+                    method: 'POST',
+                    body: JSON.stringify({ ticker })
+                });
+                
+                if (result.success) {
+                    msg.innerHTML = '<div class="message success">Bought ' + ticker + '!</div>';
+                    refreshAll();
+                } else {
+                    msg.innerHTML = '<div class="message error">' + (result.error || 'Buy failed') + '</div>';
+                }
+            } catch (e) {
+                msg.innerHTML = '<div class="message error">Failed to execute buy</div>';
+            }
+        }
+        
+        async function sellStock() {
+            const msg = document.getElementById('actionMessage');
+            
+            try {
+                const result = await apiCall('/api/sell', {
+                    method: 'POST'
+                });
+                
+                if (result.success) {
+                    msg.innerHTML = '<div class="message success">Sold position!</div>';
+                    refreshAll();
+                } else {
+                    msg.innerHTML = '<div class="message error">' + (result.error || 'No position to sell') + '</div>';
+                }
+            } catch (e) {
+                msg.innerHTML = '<div class="message error">Failed to execute sell</div>';
+            }
         }
         
         async function refreshAll() {
             await Promise.all([loadConfig(), loadSignals(), loadPortfolio()]);
         }
         
-        // Initial load
+        // Check for saved auth
         refreshAll();
-        
-        // Auto-refresh every 5 minutes
-        setInterval(refreshAll, 300000);
     </script>
 </body>
 </html>
