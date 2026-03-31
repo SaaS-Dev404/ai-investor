@@ -160,6 +160,7 @@ class PortfolioManager:
         self.buy_price = 0
         self.peak_price = 0
         self.position_ticker = None
+        self.total_invested = 0
         
     def buy(self, ticker: str, price: float, cash_available: float):
         """Execute buy"""
@@ -172,6 +173,7 @@ class PortfolioManager:
         self.peak_price = price
         self.cash = 0
         self.position_ticker = ticker
+        self.total_invested += cash_available  # Track total invested
         
         return {
             'success': True,
@@ -231,6 +233,7 @@ class PortfolioManager:
             'total_value': pos_val + self.cash,
             'current_ticker': self.position_ticker,
             'buy_price': self.buy_price,
+            'total_invested': self.total_invested,
             'unrealized_pct': ((current_price - self.buy_price) / self.buy_price * 100) 
                              if self.position > 0 and current_price > 0 else 0
         }
